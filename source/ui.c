@@ -17,6 +17,10 @@ static C3D_RenderTarget *g_top;
 static C3D_RenderTarget *g_bot;
 static C2D_Font          g_font;
 static C2D_TextBuf       g_buf;
+static u64               g_boot_ms;
+static int               g_last_mode = -1;
+static u64               g_mode_ms;
+static float             g_px[18], g_py[18], g_ps[18];
 
 #define COL_BG0   C_RGBA(7, 10, 24, 255)
 #define COL_BG1   C_RGBA(16, 20, 48, 255)
@@ -42,6 +46,13 @@ void ui_init(void)
     g_bot = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
     g_font = C2D_FontLoadSystem(CFG_REGION_EUR);
     g_buf = C2D_TextBufNew(16384);
+    g_boot_ms = osGetTime();
+
+    for (int i = 0; i < 18; i++) {
+        g_px[i] = fmodf(i * 0.618034f + 0.11f, 1.0f);
+        g_py[i] = fmodf(i * 0.377000f + 0.23f, 1.0f);
+        g_ps[i] = 0.010f + (float)(i % 6) * 0.0035f;
+    }
 }
 
 void ui_exit(void)
@@ -167,17 +178,56 @@ static void fmt_eta(u64 secs, char *out, size_t outsz)
                  (unsigned long long)(secs % 60));
 }
 
+static float now_s(void)
+{
+    return (float)(osGetTime() % 3600000ULL) / 1000.0f;
+}
+
 static void background(float w, float h)
 {
     int i;
     const int bands = 20;
+    float t = now_s();
 
     for (i = 0; i < bands; i++) {
-        float t = (float)i / (float)(bands - 1);
-        C2D_DrawRectSolid(0, h * i / bands, 0, w, h / bands + 1, lerp_color(COL_BG0, COL_BG1, t));
+        float k = (float)i / (float)(bands - 1);
+        C2D_DrawRectSolid(0, h * i / bands, 0, w, h / bands + 1, lerp_color(COL_BG0, COL_BG1, k));
     }
-    C2D_DrawCircleSolid(w - 40, 10, 0, 80, C_RGBA(34, 224, 255, 10));
-    C2D_DrawCircleSolid(30, h - 10, 0, 70, C_RGBA(255, 63, 164, 9));
+
+    /* Auroras que se mueven lento, sin texturas. */
+    for (i = 0; i < 3; i++) {
+        float cx = w * (0.5f + 0.44f * sinf(t * 0.11f + i * 2.1f));
+        float cy = h * (0.5f + 0.42f * sinf(t * 0.07f + i * 1.7f));
+        float r = 52.0f + 22.0f * sinf(t * 0.23f + i);
+        u32 c = i == 0 ? C_RGBA(34, 224, 255, 11) :
+                i == 1 ? C_RGBA(255, 63, 164, 8) : C_RGBA(124, 255, 107, 5);
+
+        C2D_DrawCircleSolid(cx, cy, 0, r, c);
+    }
+
+    /* Haz de luz diagonal que barre la pantalla. */
+    {
+        float bx = fmodf(t * 42.0f, w + 160.0f) - 80.0f;
+        u32 c0 = C_RGBA(120, 235, 255, 13);
+        u32 c1 = C_RGBA(120, 235, 255, 2);
+
+        C2D_DrawTriangle(bx, 0, c0, bx + 54, 0, c1, bx + 28, h, c0, 0);
+        C2D_DrawTriangle(bx + 54, 0, c1, bx + 86, h, c1, bx + 28, h, c0, 0);
+    }
+
+    /* Particulas flotantes con parpadeo. */
+    for (i = 0; i < 18; i++) {
+        float x = g_px[i] * w;
+        float y = fmodf(g_py[i] - t * g_ps[i], 1.0f);
+        float tw = 0.5f + 0.5f * sinf(t * 2.7f + i * 1.31f);
+        u32 c = C_RGBA(190, 235, 255, (int)(26.0f + 52.0f * tw));
+
+        if (y < 0) y += 1.0f;
+        C2D_DrawCircleSolid(x, y * h, 0, 1.1f + 1.0f * tw, c);
+    }
+
+    C2D_DrawRectSolid(0, 0, 0, w, 1, C_RGBA(34, 224, 255, 30));
+    C2D_DrawRectSolid(0, h - 1, 0, w, 1, C_RGBA(255, 63, 164, 26));
 }
 
 static void bar(float x, float y, float w, float h, float p, u32 fill, u32 track)
@@ -187,17 +237,33 @@ static void bar(float x, float y, float w, float h, float p, u32 fill, u32 track
     round_rect(x, y, w, h, h / 2, track);
     if (p > 0.005f) {
         float fw = w * p;
+        float gx, gw;
 
         if (fw < h) fw = h;
         round_rect(x, y, fw, h, h / 2, fill);
+
+        /* Brillo que recorre la barra. */
+        gx = x + fmodf(now_s() * 44.0f, fw + 24.0f) - 12.0f;
+        if (gx < x) gx = x;
+        gw = fminf(12.0f, x + fw - gx);
+        if (gw > 0)
+            C2D_DrawRectSolid(gx, y + 1, 0, gw, h > 3 ? h - 2 : h, C_RGBA(255, 255, 255, 30));
     }
 }
 
 static void checkbox(float x, float y, int on, u32 accent)
 {
-    C2D_DrawCircleSolid(x + 6, y + 6, 0, 6, on ? accent : COL_LINE);
-    if (!on) C2D_DrawCircleSolid(x + 6, y + 6, 0, 3.5f, C_RGBA(12, 18, 38, 255));
-    else C2D_DrawCircleSolid(x + 6, y + 6, 0, 2.4f, COL_DARK);
+    if (on) {
+        float t = now_s();
+        float r = 7.5f + 1.2f * sinf(t * 5.0f + x * 0.1f);
+
+        C2D_DrawCircleSolid(x + 6, y + 6, 0, r, C_RGBA(124, 255, 107, 40));
+        C2D_DrawCircleSolid(x + 6, y + 6, 0, 6, accent);
+        C2D_DrawCircleSolid(x + 6, y + 6, 0, 2.4f, COL_DARK);
+    } else {
+        C2D_DrawCircleSolid(x + 6, y + 6, 0, 6, COL_LINE);
+        C2D_DrawCircleSolid(x + 6, y + 6, 0, 3.5f, C_RGBA(12, 18, 38, 255));
+    }
 }
 
 static void icon_folder(float x, float y, u32 color)
@@ -226,7 +292,11 @@ static void key_pill(float x, float y, const char *key, const char *label, u32 a
 static void header(const SgtApp *app)
 {
     char bat[32];
+    float t = now_s();
+    float glow = 0.5f + 0.5f * sinf(t * 2.6f);
 
+    round_rect(10.0f - glow * 3.0f, 7.0f - glow * 3.0f, 34.0f + glow * 6.0f, 32.0f + glow * 6.0f,
+               11, C_RGBA(34, 224, 255, (int)(16.0f + 24.0f * glow)));
     round_rect(12, 9, 30, 28, 8, COL_CYAN);
     txt_center(27, 13, 0.46f, COL_DARK, "SD");
     txt(50, 6, 0.62f, COL_TEXT, "SD GAME TRANSFER");
@@ -245,6 +315,14 @@ static void header(const SgtApp *app)
               app->mode == SGT_MODE_SAVES ? "JUEGOS" : (app->action == SGT_ACTION_MOVE ? "MOVER" : "COPIAR"));
 
     C2D_DrawRectSolid(12, 40, 0, 376, 1, C_RGBA(34, 224, 255, 90));
+
+    /* Chispa que recorre la linea del encabezado. */
+    {
+        float mx = 12.0f + fmodf(t * 62.0f, 340.0f);
+
+        C2D_DrawRectSolid(mx, 38.5f, 0, 36, 3, C_RGBA(34, 224, 255, 150));
+        C2D_DrawRectSolid(mx + 8, 39.0f, 0, 20, 2, C_RGBA(255, 255, 255, 90));
+    }
 }
 
 static void storage_card(float x, float y, float w, float h,
@@ -297,7 +375,9 @@ static void files_view(const SgtApp *app)
         e = (SgtEntry *)&app->entries[idx];
 
         if (idx == app->cursor) {
-            round_rect(11, y - 1, 378, row_h - 2, 6, C_RGBA(34, 224, 255, 26));
+            int a = 20 + (int)(12.0f * pulse);
+
+            round_rect(11, y - 1, 378, row_h - 2, 6, C_RGBA(34, 224, 255, a));
             C2D_DrawRectSolid(11, y - 1, 0, 3, row_h - 2,
                               lerp_color(COL_CYAN, COL_PINK, pulse));
         }
@@ -351,7 +431,9 @@ static void saves_view(const SgtApp *app)
         t = (SgtTitle *)&app->titles[idx];
 
         if (idx == app->tcur) {
-            round_rect(11, y - 1, 378, row_h - 2, 6, C_RGBA(255, 63, 164, 26));
+            int a = 20 + (int)(12.0f * pulse);
+
+            round_rect(11, y - 1, 378, row_h - 2, 6, C_RGBA(255, 63, 164, a));
             C2D_DrawRectSolid(11, y - 1, 0, 3, row_h - 2,
                               lerp_color(COL_PINK, COL_CYAN, pulse));
         }
@@ -395,6 +477,7 @@ static void queue_panel(const SgtApp *app)
 {
     int i, shown = 5;
     float y0 = 36, row_h = 16;
+    float t = now_s();
 
     panel(8, 30, 304, 88, 8, COL_PANEL, COL_LINE);
     txt(16, 33, 0.34f, COL_DIM, "COLA  -  %d trabajo%s", app->njobs, app->njobs == 1 ? "" : "s");
@@ -409,7 +492,11 @@ static void queue_panel(const SgtApp *app)
         j = (SgtJob *)&app->jobs[idx];
         c = state_u32(j->state);
         if (idx == app->job_cur && app->running) {
-            round_rect(13, y0 + i * row_h - 1, 294, row_h - 1, 5, C_RGBA(34, 224, 255, 18));
+            float pulse = 0.5f + 0.5f * sinf(t * 5.0f);
+
+            round_rect(13, y0 + i * row_h - 1, 294, row_h - 1, 5,
+                       C_RGBA(34, 224, 255, 16 + (int)(14.0f * pulse)));
+            C2D_DrawCircleSolid(20, y0 + i * row_h + 5, 0, 5.5f + pulse, C_RGBA(34, 224, 255, 35));
         }
         C2D_DrawCircleSolid(20, y0 + i * row_h + 5, 0, 2.5f, c);
         ellipsize(nm, sizeof(nm), j->name, 30);
@@ -425,7 +512,7 @@ static void progress_panel(const SgtApp *app)
 {
     char name[60], done[24], total[24], eta[24], speed[24], pct[16], tail[40];
     float p = 0;
-    float shine = (float)(osGetTime() % 1600) / 1600.0f;
+    float t = now_s();
     const SgtJob *j = NULL;
 
     panel(8, 122, 304, 78, 8, COL_PANEL, COL_LINE);
@@ -462,9 +549,23 @@ static void progress_panel(const SgtApp *app)
     txt_right(302, 122, 0.75f, COL_CYAN, pct);
 
     bar(18, 148, 284, 10, p, COL_CYAN, C_RGBA(30, 42, 76, 255));
-    if (p > 0.02f) {
-        float sx = 18 + (284 - 20) * shine * p;
-        round_rect(sx, 149, 12, 8, 4, C_RGBA(255, 255, 255, 60));
+    if (p > 0.01f) {
+        float fw = 284.0f * p;
+        float off = fmodf(t * 28.0f, 18.0f);
+        float sx;
+
+        /* Rayas en movimiento dentro de la barra. */
+        for (sx = 18.0f - off; sx < 18.0f + fw; sx += 18.0f) {
+            float a = fmaxf(sx, 18.0f);
+            float b = fminf(sx + 8.0f, 18.0f + fw);
+
+            if (b > a)
+                C2D_DrawRectSolid(a, 150, 0, b - a, 6, C_RGBA(255, 255, 255, 24));
+        }
+
+        /* Punta luminosa. */
+        C2D_DrawCircleSolid(18.0f + fw, 153, 0, 7.0f + 1.0f * sinf(t * 6.0f),
+                            C_RGBA(34, 224, 255, 46));
     }
 
     fmt_size(app->cp.done, done, sizeof(done));
@@ -532,21 +633,117 @@ static void bottom(const SgtApp *app)
     if (app->confirm != SGT_CONFIRM_NONE) confirm_overlay(app);
 }
 
+static int splash_active(void)
+{
+    return (osGetTime() - g_boot_ms) < 2300;
+}
+
+static void splash_draw(void)
+{
+    u64 ms = osGetTime() - g_boot_ms;
+    float t = (float)ms / 1000.0f;
+    float e = 1.0f - powf(1.0f - fminf(t / 0.65f, 1.0f), 3.0f);
+    float p = fminf(t / 1.5f, 1.0f);
+    int fade = ms > 2000 ? (int)((ms - 2000) * 255 / 300) : 0;
+    int i;
+
+    if (fade > 255) fade = 255;
+
+    C2D_TargetClear(g_top, COL_BG0);
+    C2D_SceneBegin(g_top);
+    background(SGT_SCREEN_W, 240);
+
+    /* Ondas detras del logo. */
+    for (i = 0; i < 3; i++) {
+        float rr = fmodf(t * 66.0f + i * 34.0f, 118.0f);
+        int a = (int)(55.0f * (1.0f - rr / 118.0f));
+
+        C2D_DrawCircleSolid(200, 86, 0, rr, C_RGBA(34, 224, 255, a));
+    }
+
+    round_rect(164, 50, 72, 72, 20, C_RGBA(7, 11, 24, 245));
+    round_rect(166, 52, 68, 68, 19, C_RGBA(34, 224, 255, 24 + (int)(20.0f * (0.5f + 0.5f * sinf(t * 4.0f)))));
+    txt_center(200, 64, 2.1f, COL_CYAN, "SD");
+
+    /* El titulo entra deslizandose. */
+    {
+        float tx = 200.0f + (1.0f - e) * 46.0f;
+        int a = (int)(255.0f * e);
+
+        txt_center(tx, 132, 0.82f, C2D_Color32(232, 240, 255, a), "SD GAME TRANSFER");
+        txt_center(tx, 154, 0.4f, C2D_Color32(255, 63, 164, a), "by frisk");
+    }
+
+    bar(88, 182, 224, 7, p, COL_CYAN, C_RGBA(30, 42, 76, 255));
+    txt_center(200, 196, 0.3f, COL_DIM, "preparando la SD...");
+
+    if (fade > 0)
+        C2D_DrawRectSolid(0, 0, 0, SGT_SCREEN_W, 240, C_RGBA(3, 5, 12, fade));
+
+    C2D_TargetClear(g_bot, COL_BG0);
+    C2D_SceneBegin(g_bot);
+    background(SGT_BOTTOM_W, 240);
+
+    /* Spinner de puntos. */
+    for (i = 0; i < 8; i++) {
+        float ang = t * 3.2f + i * 0.785398f;
+        int a = 40 + (int)(180.0f * (float)i / 7.0f);
+
+        C2D_DrawCircleSolid(160 + cosf(ang) * 30, 92 + sinf(ang) * 30, 0, 2.2f + i * 0.22f,
+                            C_RGBA(34, 224, 255, a));
+    }
+    txt_center(160, 86, 0.62f, COL_CYAN, "SD");
+    txt_center(160, 140, 0.62f, COL_TEXT, "SD GAME TRANSFER");
+    txt_center(160, 160, 0.32f, COL_PINK, "by frisk");
+
+    {
+        char dots[8], line[32];
+        int n = (int)(t * 3.0f) % 4;
+
+        snprintf(dots, sizeof(dots), "%.*s", n, "...");
+        snprintf(line, sizeof(line), "cargando%s", dots);
+        txt_center(160, 178, 0.3f, COL_DIM, line);
+    }
+
+    if (fade > 0)
+        C2D_DrawRectSolid(0, 0, 0, SGT_BOTTOM_W, 240, C_RGBA(3, 5, 12, fade));
+}
+
 void ui_draw(const SgtApp *app)
 {
+    u64 now = osGetTime();
+    int fade = 0;
+
     C2D_TextBufClear(g_buf);
 
     C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+
+    if (splash_active()) {
+        splash_draw();
+        C3D_FrameEnd(0);
+        return;
+    }
+
+    if (app->mode != g_last_mode) {
+        g_last_mode = app->mode;
+        g_mode_ms = now;
+    }
+    if (now - g_mode_ms < 230)
+        fade = (int)(210.0f * (1.0f - (float)(now - g_mode_ms) / 230.0f));
 
     C2D_TargetClear(g_top, COL_BG0);
     C2D_SceneBegin(g_top);
     background(SGT_SCREEN_W, 240);
     if (app->mode == SGT_MODE_SAVES) saves_view(app);
     else files_view(app);
+    if (fade > 0)
+        C2D_DrawRectSolid(0, 0, 0, SGT_SCREEN_W, 240, C_RGBA(3, 5, 12, fade));
 
     C2D_TargetClear(g_bot, COL_BG0);
     C2D_SceneBegin(g_bot);
     bottom(app);
+    if (fade > 0)
+        C2D_DrawRectSolid(0, 0, 0, SGT_BOTTOM_W, 240, C_RGBA(3, 5, 12, fade));
 
     C3D_FrameEnd(0);
 }

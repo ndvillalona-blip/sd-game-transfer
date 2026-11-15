@@ -10,3 +10,4 @@ build.log
 smdh.bin
 tests/*.exe
 tests/tmp/
+tools/cia/*.exe

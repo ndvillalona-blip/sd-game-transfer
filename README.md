@@ -4,6 +4,9 @@ Homebrew para **Nintendo 2DS / 3DS** que copia, mueve y respalda archivos de la
 tarjeta SD con una interfaz animada, cola de trabajos, tiempo estimado y
 **deteccion de los juegos del HOME** para respaldar sus partidas guardadas.
 
+Se puede usar como **.3dsx** desde el hbmenu o instalar el **.cia** para que
+aparezca en el menu HOME con su banner, icono y sonido.
+
 Creado por **frisk**.
 
 ![icono](icon.png)
@@ -22,8 +25,9 @@ Creado por **frisk**.
   consola.
 - **No se suspende al cerrar la tapa**: mientras hay una transferencia activa se
   bloquea el modo reposo, asi que puedes cerrar la consola y la copia sigue.
-- Interfaz a 60 fps con citro2d: degradados, tarjetas de almacenamiento, barras
-  animadas, cola con estados y fuente del sistema (sin assets externos).
+- Interfaz a 60 fps con citro2d: arranque animado, auroras y particulas de
+  fondo, logo con pulso, haz de luz, barras con brillo y rayas en movimiento,
+  transiciones entre pantallas y fuente del sistema (sin assets externos).
 
 ## Controles
 
@@ -61,10 +65,23 @@ sdmc:/SDGameTransfer/saves/<ID>/  respaldo de cada partida
 
 ## Instalar
 
+### Desde el hbmenu (.3dsx)
+
 1. Copia `sd-game-transfer.3dsx` a `sdmc:/3ds/`.
 2. Abrelo desde el **hbmenu**.
-3. Para las partidas hace falta **CFW (Luma3DS)**: sin CFW el sistema no deja
-   abrir los archivos de guardado.
+
+### En el menu HOME (.cia)
+
+1. Copia `sd-game-transfer.cia` a la raiz de la SD o a `sdmc:/3ds/`.
+2. Abre **FBI**, entra en **SD**, selecciona el `.cia` y pulsa **Install**.
+3. Al terminar aparece **SD Game Transfer** en el HOME, con banner, icono y un
+   pitido corto.
+
+El CIA es homebrew sin firma oficial: hace falta **CFW con sigpatches** (Luma3DS
+normalmente ya los trae). Si FBI da error de firma, actualiza Luma/FBI.
+
+Para las partidas hace falta **CFW**: sin CFW el sistema no deja abrir los
+archivos de guardado.
 
 ## Limites importantes
 
@@ -79,6 +96,16 @@ sdmc:/SDGameTransfer/saves/<ID>/  respaldo de cada partida
 - Copiar archivos grandes o muchos a la vez tarda: la velocidad real la marca la
   SD, no la app.
 - Maximo 1024 archivos por trabajo y 48 trabajos en cola.
+
+## Animaciones
+
+- Splash de arranque con ondas, logo, barra de carga y spinner.
+- Fondo con auroras y particulas que flotan y parpadean.
+- Haz de luz diagonal que recorre la pantalla y chispa en el encabezado.
+- Logo con halo pulsante y botones/checks con pulso.
+- Barras de espacio y progreso con brillo, rayas y punta luminosa.
+- Cola con el trabajo activo palpitando.
+- Fundido al cambiar entre ARCHIVOS y JUEGOS.
 
 ## Pruebas
 
