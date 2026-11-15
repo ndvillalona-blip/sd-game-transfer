@@ -49,7 +49,7 @@ static int open_save(u64 title_id, int media, FS_Archive *archive)
     FS_Path p = { PATH_BINARY, sizeof(id), &id };
 
     if (media == 1) {
-        FS_Path empty = { PATH_EMPTY, 0, NULL };
+        FS_Path empty = fsMakePath(PATH_EMPTY, " ");
 
         return R_SUCCEEDED(FSUSER_OpenArchive(archive, ARCHIVE_GAMECARD_SAVEDATA, empty)) ? 0 : -1;
     }
