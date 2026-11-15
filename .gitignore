@@ -7,3 +7,4 @@ build.log
 
 !dist/*.3dsx
 !dist/SHA256SUMS.txt
+smdh.bin
