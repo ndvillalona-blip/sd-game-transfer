@@ -64,16 +64,23 @@ static u32 lerp_color(u32 a, u32 b, float t)
                        (u8)(aa + (ba - aa) * t));
 }
 
+/* Esquinas escalonadas en vez de circulos: mismos pixeles bonitos pero sin
+ * cambiar el modo de dibujado de la GPU en cada panel (importante en 2DS). */
 static void round_rect(float x, float y, float w, float h, float r, u32 color)
 {
-    if (r <= 0) { C2D_DrawRectSolid(x, y, 0, w, h, color); return; }
+    int i, ri;
+
+    if (r <= 0 || w <= 0 || h <= 0) { C2D_DrawRectSolid(x, y, 0, w, h, color); return; }
     if (r > h / 2) r = h / 2;
-    C2D_DrawRectSolid(x + r, y, 0, w - 2 * r, h, color);
+    if (r > w / 2) r = w / 2;
+    ri = (int)r;
+    for (i = 0; i < ri; i++) {
+        float inset = r - i;
+
+        C2D_DrawRectSolid(x + inset, y + i, 0, w - 2 * inset, 1, color);
+        C2D_DrawRectSolid(x + inset, y + h - 1 - i, 0, w - 2 * inset, 1, color);
+    }
     C2D_DrawRectSolid(x, y + r, 0, w, h - 2 * r, color);
-    C2D_DrawCircleSolid(x + r, y + r, 0, r, color);
-    C2D_DrawCircleSolid(x + w - r, y + r, 0, r, color);
-    C2D_DrawCircleSolid(x + r, y + h - r, 0, r, color);
-    C2D_DrawCircleSolid(x + w - r, y + h - r, 0, r, color);
 }
 
 static void panel(float x, float y, float w, float h, float r, u32 fill, u32 border)
@@ -436,7 +443,10 @@ static void progress_panel(const SgtApp *app)
         txt(18, 148, 0.3f, COL_DIM, "MODO");
         txt(64, 146, 0.45f, app->action == SGT_ACTION_MOVE ? COL_AMBER : COL_CYAN,
             "%s", app->action == SGT_ACTION_MOVE ? "MOVER" : "COPIAR");
-        txt(18, 166, 0.32f, COL_DIM, "Marcados: %d  -  %s", sel, selsize);
+        if (app->mode == SGT_MODE_SAVES)
+            txt(18, 166, 0.32f, COL_DIM, "Marcados: %d titulos", sel);
+        else
+            txt(18, 166, 0.32f, COL_DIM, "Marcados: %d  -  %s", sel, selsize);
         txt(18, 182, 0.3f, COL_DIM, "Cierra la tapa: la transferencia sigue.");
         return;
     }

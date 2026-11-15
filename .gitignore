@@ -4,3 +4,6 @@ build/
 *.smdh
 build.log
 .DS_Store
+
+!dist/*.3dsx
+!dist/SHA256SUMS.txt
