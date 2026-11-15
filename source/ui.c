@@ -242,7 +242,7 @@ static void header(const SgtApp *app)
     }
     txt_right(388, 32, 0.32f,
               app->action == SGT_ACTION_MOVE ? COL_AMBER : COL_CYAN,
-              app->mode == SGT_MODE_SAVES ? "PARTIDAS" : (app->action == SGT_ACTION_MOVE ? "MOVER" : "COPIAR"));
+              app->mode == SGT_MODE_SAVES ? "JUEGOS" : (app->action == SGT_ACTION_MOVE ? "MOVER" : "COPIAR"));
 
     C2D_DrawRectSolid(12, 40, 0, 376, 1, C_RGBA(34, 224, 255, 90));
 }
@@ -317,7 +317,7 @@ static void files_view(const SgtApp *app)
     key_pill(12, 216, "A", "marcar", COL_CYAN);
     key_pill(78, 216, "Y", "cola", COL_LIME);
     key_pill(136, 216, "X", app->action == SGT_ACTION_MOVE ? "mover" : "copiar", COL_AMBER);
-    key_pill(206, 216, "SEL", "partidas", COL_PINK);
+    key_pill(206, 216, "SEL", "juegos", COL_PINK);
     key_pill(286, 216, "B", "subir", COL_DIM);
     key_pill(348, 216, "STA", "salir", COL_DIM);
 }
@@ -335,11 +335,11 @@ static void saves_view(const SgtApp *app)
                  "sistema, solo lectura");
 
     panel(8, 94, 384, 112, 8, COL_PANEL, COL_LINE);
-    snprintf(title, sizeof(title), "PARTIDAS  -  %d titulos en la SD", app->ntitles);
+    snprintf(title, sizeof(title), "JUEGOS  -  %d detectados en el HOME", app->ntitles);
     txt(16, 98, 0.31f, COL_DIM, "%s", title);
 
     if (app->ntitles == 0) {
-        txt_center(200, 150, 0.42f, COL_DIM, "Sin titulos instalados");
+        txt_center(200, 150, 0.42f, COL_DIM, "No hay juegos visibles");
     }
     for (i = 0; i < rows; i++) {
         int idx = app->ttop + i;
@@ -358,8 +358,7 @@ static void saves_view(const SgtApp *app)
         icon_file(18, y + 1, COL_PINK);
         ellipsize(nm, sizeof(nm), t->code, 20);
         txt(40, y + 2, 0.38f, idx == app->tcur ? COL_TEXT : C_RGBA(200, 212, 236, 255), "%s", nm);
-        txt(120, y + 3, 0.28f, COL_DIM, "%08lX",
-            (unsigned long)((t->id >> 8) & 0xFFFFFFFFULL));
+        txt(128, y + 3, 0.28f, t->media ? COL_AMBER : COL_CYAN, t->media ? "CARTUCHO" : "SD");
         fmt_size(t->size, sz, sizeof(sz));
         txt_right(360, y + 3, 0.31f, COL_DIM, sz);
         checkbox(372, y + 5, t->selected, COL_LIME);
@@ -514,7 +513,7 @@ static void bottom(const SgtApp *app)
     background(SGT_BOTTOM_W, 240);
 
     txt(12, 8, 0.5f, COL_TEXT, "PANEL DE TRANSFERENCIA");
-    txt_right(308, 10, 0.3f, COL_DIM, app->mode == SGT_MODE_SAVES ? "PARTIDAS" : "ARCHIVOS");
+    txt_right(308, 10, 0.3f, COL_DIM, app->mode == SGT_MODE_SAVES ? "JUEGOS" : "ARCHIVOS");
 
     queue_panel(app);
     progress_panel(app);

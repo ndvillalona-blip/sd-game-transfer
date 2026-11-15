@@ -2,7 +2,7 @@
 
 Homebrew para **Nintendo 2DS / 3DS** que copia, mueve y respalda archivos de la
 tarjeta SD con una interfaz animada, cola de trabajos, tiempo estimado y
-transferencia de **partidas guardadas**.
+**deteccion de los juegos del HOME** para respaldar sus partidas guardadas.
 
 Creado por **frisk**.
 
@@ -14,8 +14,10 @@ Creado por **frisk**.
 - **Cola de transferencia**: marcas varios elementos y se copian **de uno en
   uno**, con progreso, velocidad (MB/s) y tiempo restante.
 - **Copiar o mover** (al mover, borra el original solo si la copia termino bien).
-- **Respaldo y restauración de partidas** de los títulos instalados en la SD
-  (archivos de guardado reales, no solo el `.sav` de un cartucho).
+- **Deteccion de juegos**: lista los titulos instalados que aparecen en el HOME
+  (con su codigo de producto y tamano) y el cartucho insertado, y permite
+  respaldar o restaurar sus partidas (archivos de guardado reales, no solo el
+  `.sav` de un cartucho).
 - **Espacio en vivo** de la tarjeta SD y de la memoria interna (NAND) de la
   consola.
 - **No se suspende al cerrar la tapa**: mientras hay una transferencia activa se
@@ -35,17 +37,20 @@ Creado por **frisk**.
 | Y | Enviar lo marcado a la cola y empezar |
 | X | Cambiar entre COPIAR y MOVER |
 | B | Subir de carpeta |
-| SELECT | Cambiar a PARTIDAS |
+| SELECT | Cambiar a JUEGOS |
 | START | Salir |
 
-### Partidas
+### Juegos
 
 | Boton | Accion |
 |---|---|
-| A | Marcar titulo |
+| A | Marcar juego |
 | Y | Respaldar las partidas marcadas en `sdmc:/SDGameTransfer/saves/<TITULO>/` |
 | X | Restaurar (pide confirmacion: sobrescribe la partida actual) |
 | B | Volver a archivos |
+
+Cada fila muestra el codigo de producto, si esta **en la SD** o es **CARTUCHO**,
+y el tamano del titulo.
 
 ## Donde van los archivos
 
@@ -75,6 +80,20 @@ sdmc:/SDGameTransfer/saves/<ID>/  respaldo de cada partida
   SD, no la app.
 - Maximo 1024 archivos por trabajo y 48 trabajos en cola.
 
+## Pruebas
+
+El motor de copia se puede compilar en el PC con `-DSGT_HOST` y probar con un
+arbol grande de archivos:
+
+```sh
+gcc -O2 -Wall -Wextra -DSGT_HOST -Isource -Itests/stub \
+  source/transfer.c tests/test_transfer.c -o tests/test_transfer.exe
+./tests/test_transfer.exe
+```
+
+La ultima prueba: 867 archivos, 233 MB, copia y verificacion byte a byte,
+sobrescritura, mover, borrado del origen y limite de 1024 archivos.
+
 ## Compilar
 
 Necesitas devkitPro (devkitARM + libctru + citro2d, ya incluidos en `3ds-dev`).
@@ -98,7 +117,8 @@ En este PC hay un toolchain portatil en `../tools/devkitpro`:
 
 - `source/main.c`: navegacion, cola, entrada y ciclo principal.
 - `source/transfer.c`: recorrido de carpetas y copia por trozos de 256 KB.
-- `source/saves.c`: archivos de guardado via `ARCHIVE_USER_SAVEDATA`.
+- `source/saves.c`: deteccion de titulos (SD y cartucho) y archivos de
+  guardado via `ARCHIVE_USER_SAVEDATA` / `ARCHIVE_GAMECARD_SAVEDATA`.
 - `source/ui.c`: toda la interfaz con citro2d.
 - La copia avanza un trozo por frame, asi la consola sigue respondiendo y el
   progreso/ETA se actualizan sin hilos.

@@ -43,11 +43,16 @@ static void join_path(char *out, size_t outsz, const char *base, const char *nam
         snprintf(out, outsz, "%s/%s", base, name);
 }
 
-static int open_save(u64 title_id, FS_Archive *archive)
+static int open_save(u64 title_id, int media, FS_Archive *archive)
 {
     u64 id = title_id;
     FS_Path p = { PATH_BINARY, sizeof(id), &id };
 
+    if (media == 1) {
+        FS_Path empty = { PATH_EMPTY, 0, NULL };
+
+        return R_SUCCEEDED(FSUSER_OpenArchive(archive, ARCHIVE_GAMECARD_SAVEDATA, empty)) ? 0 : -1;
+    }
     return R_SUCCEEDED(FSUSER_OpenArchive(archive, ARCHIVE_USER_SAVEDATA, p)) ? 0 : -1;
 }
 
@@ -265,16 +270,41 @@ int sgt_save_list(SgtTitle *out, int max)
         snprintf(out[n].code, sizeof(out[n].code), "%s", code);
         out[n].size = infos[i].size;
         out[n].selected = 0;
+        out[n].media = 0;
         n++;
+    }
+
+    /* El cartucho insertado tambien aparece en el HOME: lo anadimos al final. */
+    {
+        u32 gcount = 0, gread = 0;
+        u64 gid = 0;
+        AM_TitleInfo ginfo;
+
+        memset(&ginfo, 0, sizeof(ginfo));
+        if (n < max &&
+            R_SUCCEEDED(AM_GetTitleCount(MEDIATYPE_GAME_CARD, &gcount)) && gcount > 0 &&
+            R_SUCCEEDED(AM_GetTitleList(&gread, MEDIATYPE_GAME_CARD, 1, &gid)) && gread > 0) {
+            char code[16] = "-";
+
+            AM_GetTitleInfo(MEDIATYPE_GAME_CARD, 1, &gid, &ginfo);
+            if (R_FAILED(AM_GetTitleProductCode(MEDIATYPE_GAME_CARD, gid, code)))
+                snprintf(code, sizeof(code), "-");
+            out[n].id = gid;
+            snprintf(out[n].code, sizeof(out[n].code), "%s", code);
+            out[n].size = ginfo.size;
+            out[n].selected = 0;
+            out[n].media = 1;
+            n++;
+        }
     }
     return n;
 }
 
-int sgt_save_backup(u64 title_id, const char *dst_root, char *err)
+int sgt_save_backup(u64 title_id, int media, const char *dst_root, char *err)
 {
     FS_Archive a;
 
-    if (open_save(title_id, &a) != 0) {
+    if (open_save(title_id, media, &a) != 0) {
         set_err(err, "sin partida o sin acceso (CFW)");
         return -1;
     }
@@ -286,12 +316,12 @@ int sgt_save_backup(u64 title_id, const char *dst_root, char *err)
     return 0;
 }
 
-int sgt_save_restore(u64 title_id, const char *src_root, char *err)
+int sgt_save_restore(u64 title_id, int media, const char *src_root, char *err)
 {
     FS_Archive a;
     int rc;
 
-    if (open_save(title_id, &a) != 0) {
+    if (open_save(title_id, media, &a) != 0) {
         set_err(err, "sin partida o sin acceso (CFW)");
         return -1;
     }

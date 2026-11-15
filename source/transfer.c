@@ -14,6 +14,7 @@ static void set_err(char *err, const char *msg)
     if (err) snprintf(err, 80, "%s", msg ? msg : "");
 }
 
+#ifndef SGT_HOST
 void sgt_storage(u64 *sd_total, u64 *sd_free, u64 *nand_total, u64 *nand_free)
 {
     FS_ArchiveResource r;
@@ -28,6 +29,7 @@ void sgt_storage(u64 *sd_total, u64 *sd_free, u64 *nand_total, u64 *nand_free)
         *nand_free  = (u64)r.freeClusters  * r.clusterSize;
     }
 }
+#endif /* SGT_HOST */
 
 void sgt_mkdirs(const char *file)
 {

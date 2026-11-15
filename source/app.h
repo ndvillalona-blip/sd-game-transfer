@@ -56,6 +56,7 @@ typedef struct {
     char code[16];
     u64  size;
     int  selected;
+    int  media; /* 0 = instalado en la SD, 1 = cartucho */
 } SgtTitle;
 
 enum { SGT_MODE_FILES = 0, SGT_MODE_SAVES = 1 };

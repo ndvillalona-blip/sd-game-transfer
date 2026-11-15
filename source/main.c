@@ -36,19 +36,17 @@ static void set_status(const char *fmt, ...)
 
 static void join_path(char *out, size_t outsz, const char *base, const char *name)
 {
-    size_t n = strlen(base);
+    size_t bl = strlen(base), nl = strlen(name), pos = 0;
+    int slash = !(bl > 0 && base[bl - 1] == '/');
 
-    if (n > 0 && base[n - 1] == '/')
-        snprintf(out, outsz, "%s%s", base, name);
-    else
-        snprintf(out, outsz, "%s/%s", base, name);
-}
-
-static const char *last_name(const char *path)
-{
-    const char *p = strrchr(path, '/');
-
-    return p ? p + 1 : path;
+    if (bl >= outsz) bl = outsz - 1;
+    memcpy(out, base, bl);
+    pos = bl;
+    if (slash && pos + 1 < outsz) out[pos++] = '/';
+    if (nl > outsz - 1 - pos) nl = outsz - 1 - pos;
+    memcpy(out + pos, name, nl);
+    pos += nl;
+    out[pos] = '\0';
 }
 
 static void refresh_storage(void)
@@ -336,7 +334,7 @@ static void do_backup(void)
         snprintf(dir, sizeof(dir), "%s/%016llX", DEST_SAVE,
                  (unsigned long long)g_app.titles[i].id);
         mkdir(dir, 0777);
-        if (sgt_save_backup(g_app.titles[i].id, dir, err) == 0) ok++;
+        if (sgt_save_backup(g_app.titles[i].id, g_app.titles[i].media, dir, err) == 0) ok++;
         else {
             fail++;
             set_status("%s: %s", g_app.titles[i].code, err);
@@ -375,7 +373,7 @@ static void do_restore(void)
             fail++;
             continue;
         }
-        if (sgt_save_restore(g_app.titles[i].id, dir, err) == 0) ok++;
+        if (sgt_save_restore(g_app.titles[i].id, g_app.titles[i].media, dir, err) == 0) ok++;
         else {
             fail++;
             set_status("%s: %s", g_app.titles[i].code, err);
